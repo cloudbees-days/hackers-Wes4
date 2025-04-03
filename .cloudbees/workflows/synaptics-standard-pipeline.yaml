@@ -1,7 +1,7 @@
 apiVersion: automation.cloudbees.io/v1alpha1
 kind: workflow
 name: Synaptics Standard Pipeline
-# This workflow emulates running the Synaptice Standard Pipeline model
+# This is the core Synaptics Pipeline with standard and nested flows
 on:
   workflow_dispatch:
   push:
@@ -15,9 +15,9 @@ permissions:
   id-token: write
 jobs:
   SynapticsTest1:
-    # This is the standard pipeline for Synaptics
     steps:
       - name: Run Jenkins Job
+      # This runs the Synaptics Jenkins Pipeline Example
         with:
           url: https://sda.preview.cb-demos.io/bcauthen-demos-mc-1/
           username: ${{ secrets.WES_JENKINS_USERNAME }}
@@ -25,10 +25,29 @@ jobs:
           job-name: Synaptics_Example
         uses: cloudbees-io/jenkins-run-job@v2
         continue-on-error: true
+      - name: Get source code
+        uses: cloudbees-io/checkout@v1
+      - name: Run unit tests
+        kind: test
+        uses: docker://node:lts
+        run: |-
+          npm ci
+          npm run test:unit
+          npx jest --coverage >> $CLOUDBEES_OUTPUTS/CODE_COVERAGE
+      - name: Publish test results
+        kind: test
+        uses: cloudbees-io/publish-test-results@v1
+        with:
+          test-type: JUnit
+          folder-name: ${{ cloudbees.workspace }}/junit.xml
+      - name: Publish evidence
+        uses: cloudbees-io/publish-evidence-item@v1
+    outputs:
+      CODE_COVERAGE: ${{ steps.RunUnitTest.outputs.CODE_COVERAGE }}
   NestedPipeline:
-    # This is the Nested Jenkins Pipeline for Synaptics
     steps:
       - name: Run Nested Jenkins Pipelines
+      # This runs the Nested Jenkins Pipelines example
         kind: test
         uses: cloudbees-io/jenkins-run-job@v2
         with:
